@@ -166,6 +166,7 @@ class ColumnarFileSourceScanExec(
         relation.fileFormat match {
           case _: ParquetFileFormat =>
             logInfo(s"Input file format is parquet file. Columnar file scan supported.")
+            // TODO: read tmpDir from config.
             ColumnarParquetFileFormatHandler.buildColumnarReaderWithPartitionValues(
               relation.sparkSession,
               relation.dataSchema,
