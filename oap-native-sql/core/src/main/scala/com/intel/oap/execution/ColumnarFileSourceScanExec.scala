@@ -15,7 +15,7 @@
  * limitations under the License.
  */
  
-package com.intel.oap.execution
+package org.apache.spark.sql.execution
 
 import com.intel.oap.ColumnarPluginConfig
 
@@ -65,7 +65,7 @@ class ColumnarFileSourceScanExec(
     dataFilters,
     tableIdentifier) {
     
-    val tmpDir = ColumnarPluginConfig.getConf(sparkContext.getConf).tmpFile
+    // var tmpDir = ColumnarPluginConfig.getConf(sparkContext.getConf).tmpFile
 
     override lazy val supportsColumnar: Boolean = true
 
@@ -89,9 +89,11 @@ class ColumnarFileSourceScanExec(
       ret
     }.toArray
 
-    /* @transient
-    private override lazy val pushedDownFilters = dataFilters.flatMap(DataSourceStrategy.translateFilter)
-    logInfo(s"Pushed Filters: ${pushedDownFilters.mkString(",")}") */
+    @transient
+    private lazy val pushedDownFilters = {
+      val supportNestedPredicatePushdown = DataSourceUtils.supportNestedPredicatePushdown(relation)
+      dataFilters.flatMap(DataSourceStrategy.translateFilter(_, supportNestedPredicatePushdown))
+    }
 
     protected def createColumnarBucketedReadRDD(
         bucketSpec: BucketSpec,
@@ -165,15 +167,14 @@ class ColumnarFileSourceScanExec(
           case _: ParquetFileFormat =>
             logInfo(s"Input file format is parquet file. Columnar file scan supported.")
             ColumnarParquetFileFormatHandler.buildColumnarReaderWithPartitionValues(
-              relation,
               relation.sparkSession,
               relation.dataSchema,
               relation.partitionSchema,
               requiredSchema,
-              dataFilters,
+              pushedDownFilters,
               relation.options,
               relation.sparkSession.sessionState.newHadoopConfWithOptions(relation.options),
-              tmpDir)
+              "/tmp")
           case _: FileFormat =>
             throw new UnsupportedOperationException(s"InputColumnarRDD is not supported for $this")
         }

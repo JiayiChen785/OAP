@@ -42,12 +42,11 @@ import org.apache.spark.util.{SerializableConfiguration, ThreadUtils}
 object ColumnarParquetFileFormatHandler extends ParquetFileFormat{
     
     def buildColumnarReaderWithPartitionValues(
-      @transient relation: HadoopFsRelation,
       sparkSession: SparkSession,
       dataSchema: StructType,
       partitionSchema: StructType,
       requiredSchema: StructType,
-      dataFilters: Seq[Expression],
+      filters: Seq[Filter],
       options: Map[String, String],
       hadoopConf: Configuration,
       tmp_dir: String): (PartitionedFile) => Iterator[ColumnarBatch] = {
@@ -118,10 +117,6 @@ object ColumnarParquetFileFormatHandler extends ParquetFileFormat{
 
       val sharedConf = broadcastedHadoopConf.value.value
 
-      lazy val filters = {
-        val supportNestedPredicatePushdown = DataSourceUtils.supportNestedPredicatePushdown(relation)
-        dataFilters.flatMap(DataSourceStrategy.translateFilter(_, supportNestedPredicatePushdown))
-      }
       lazy val footerFileMetaData =
         ParquetFileReader.readFooter(sharedConf, filePath, SKIP_ROW_GROUPS).getFileMetaData
       // Try to push down filters when filter push-down is enabled.
